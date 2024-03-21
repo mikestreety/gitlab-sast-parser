@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Gitlab SAST Parser</title>
+</head>
+
+<body>
+	<div class="listing">
+		<form id="form">
+			<label for="new">Create a new project</label>
+			<input type="text" class="new" id="new" placeholder="Add a new item">
+			<button type="submit">Add</button>
+			<button type="button" onclick="clearStorage()">Clear Storage</button>
+		</form>
+
+		<ul class="list"></ul>
+	</div>
+
+	<div class="detail">
+		<div class="upload">
+			<label for="file">Upload File</label>
+			<input type="file" id="file" onchange="uploadFile()">
+		</div>
+
+		<div class="data"></div>
+	</div>
+
+	<script type="text/javascript">
+
+		// Clear the storage
+		function clearStorage() {
+			localStorage.clear();
+			listItems()
+		}
+
+		const listItems = function () {
+			// Get the items from local storage
+			var items = JSON.parse(localStorage.getItem("items")) || [];
+
+			// Get the list element
+			var list = document.querySelector(".list");
+			list.innerHTML = '';
+
+			// Loop through the items
+			items.forEach(function (item) {
+				// Create a list item
+				var li = document.createElement("li");
+				li.innerHTML = `<a href="#${item.time}">${item.title}</a>`;
+
+				// Add the list item to the DOM
+				list.appendChild(li);
+			});
+		}
+
+		listItems();
+
+		// Get the form element
+		var form = document.querySelector("#form");
+
+		// Add an event listener for the form submit event
+		form.addEventListener("submit", function (event) {
+			var items = JSON.parse(localStorage.getItem("items")) || [];
+
+			// Prevent the form from submitting
+			event.preventDefault();
+
+			// Get the value of the input
+			var value = document.querySelector(".new").value;
+
+			// Add the value to the list
+			items.push({
+				title: value,
+				time: Date.now()
+			});
+
+			// Save the items to local storage
+			localStorage.setItem("items", JSON.stringify(items));
+
+			// Clear the input value
+			document.querySelector(".new").value = "";
+
+			listItems();
+		});
+
+		// Get the hash link
+
+		function triggerView() {
+				var link = window.location.hash;
+
+			if (link) {
+				// Show the detail div
+				document.querySelector(".detail").style.display = "block";
+				document.querySelector(".listing").style.display = "none";
+				showData();
+			} else {
+				document.querySelector(".listing").style.display = "block";
+				document.querySelector(".detail").style.display = "none";
+				listItems();
+			}
+		}
+
+		window.addEventListener("hashchange", triggerView);
+		triggerView();
+
+		// Add an event listener for the file upload
+		function uploadFile() {
+			var file = document.getElementById("file").files[0];
+
+			// Create a new FileReader
+			var reader = new FileReader();
+
+			// Read the file as text
+			reader.readAsText(file);
+
+			// Process the file once it's loaded
+			reader.onload = function () {
+				// Parse the JSON
+				var data = JSON.parse(reader.result);
+
+				// Add the data to the local storage
+				let existing = JSON.parse(localStorage.getItem(window.location.hash) || '[]');
+				existing.push(data);
+				localStorage.setItem(window.location.hash, JSON.stringify(existing));
+
+				document.getElementById("file").value = '';
+
+				// Update the list
+				showData();
+			};
+		}
+
+		function showData() {
+			let data = [];
+			if(window.location.hash) {
+				data = localStorage.getItem(window.location.hash) || [];
+			}
+
+			if(!data.length) {
+				return
+			}
+
+			// Get the list element
+			var details = document.querySelector(".data");
+			details.innerHTML = '';
+
+			data = JSON.parse(data);
+			console.log(data);
+
+			// Loop through the items
+			data.forEach(function (item) {
+				console.log(item);
+				if(!item.vulnerabilities.length) {
+					return;
+				}
+
+				let html = '';
+
+				html += `<h2>${item.scan.analyzer.name}</h2>`;
+
+				item.vulnerabilities.forEach(element => {
+					html += `
+						<h3>${element.name}</h3>
+						<p>Severity: ${element.severity}</p>
+						<p>Description: ${element.description}</p>
+						<p>Category: ${element.category}</p>
+						<p>Location: ${element.location.file} (line ${element.location.start_line})</p>
+					`;
+
+				});
+
+				var div = document.createElement("div");
+				div.innerHTML = `<div>${html}</div>`
+				details.appendChild(div)
+			});
+		}
+	</script>
+</body>
+
+</html>
